@@ -660,15 +660,19 @@ public class FeatureUtils {
 			return 0d;
 		}
 		List<String> mList = new ArrayList<>();
+		List<String> mPidList = new ArrayList<>();
 		for(JsonNode _m : master) {
 			mList.add(_m.get("name").asText().toLowerCase());
+			mPidList.add(_m.get("pid").asText().toLowerCase());
 		}
 		List<String> cList = new ArrayList<>();
+		List<String> cPidList = new ArrayList<>();
 		for(JsonNode _c : candit) {
 			cList.add(_c.get("name").asText().toLowerCase());
+			cPidList.add((_c.get("pid").asText().toLowerCase()));
 		}
 		if (strict){
-			return strictOverlapRatio(mList, cList);
+			return strictOverlapRatio(mPidList, cPidList);
 		}else {
 			return overlapRatio(mList, cList);
 		}
