@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.similarity.LevenshteinDistance;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author yuxi
@@ -368,7 +369,14 @@ public class FeatureUtils {
 			return new Double(ret);
 		}
 	}
-	
+
+	public static Double strictOverlapRatio(List<String> master, List<String> candit){
+		Set<String> result = master.stream()
+				.distinct()
+				.filter(candit::contains)
+				.collect(Collectors.toSet());
+		return result.size()/((master.size()+candit.size())/2+1e-2);
+	}
 	
 	/**
 	 * input : ['', '', ...] 字符串切割 or JsonNode.forEach() => List<String>
@@ -638,28 +646,36 @@ public class FeatureUtils {
 			return (L1Length + L2Length) / 2;
 		}
 	}
-	
-	
+
+
 	/**
 	 * geotag
 	 *
 	 * ﻿[{"name" : "mclean", "score" : 0.783655166625977, "coord" : "38,-77", "pid" : "mclean,virginia", "type" : "city"}]
 	 */
-	public static Double geotagOverlapRatio(JsonNode master, JsonNode candit) {
+	public static Double geotagOverlapRatio(JsonNode master, JsonNode candit, Boolean strict) {
 		if (master == null || candit == null || (master.size() == 0 && candit.size() == 0)) {
 			return null;
 		} else if (master.size() == 0 || candit.size() == 0) {
 			return 0d;
 		}
 		List<String> mList = new ArrayList<>();
+		List<String> mPidList = new ArrayList<>();
 		for(JsonNode _m : master) {
 			mList.add(_m.get("name").asText().toLowerCase());
+			mPidList.add(_m.get("pid").asText().toLowerCase());
 		}
 		List<String> cList = new ArrayList<>();
+		List<String> cPidList = new ArrayList<>();
 		for(JsonNode _c : candit) {
 			cList.add(_c.get("name").asText().toLowerCase());
+			cPidList.add((_c.get("pid").asText().toLowerCase()));
 		}
-		return overlapRatio(mList, cList);
+		if (strict){
+			return strictOverlapRatio(mPidList, cPidList);
+		}else {
+			return overlapRatio(mList, cList);
+		}
 	}
 	
 	
@@ -790,7 +806,7 @@ public class FeatureUtils {
 		cStr = "[{\"name\": \"california\", \"score\": 0.9930974841117859, \"coord\": \"43.181211,-95.856954\", \"pid\": \"sheldon,iowa\", \"type\": \"city\"}, {\"name\": \"o'brien county\", \"score\": 0.9583118557929993, \"coord\": \"43.113124,-95.645795\", \"pid\": \"o'brien_county,iowa\", \"type\": \"county\"}]";
 		mNode = mapper.readTree(mStr);
 		cNode = mapper.readTree(cStr);
-		System.out.println("GEOTag Ratio : " + geotagOverlapRatio(mNode, cNode));
+		System.out.println("GEOTag Ratio : " + geotagOverlapRatio(mNode, cNode, Boolean.FALSE));
 		System.out.println("GEOTag Length : " + geotagAverageLength(mNode, cNode));
 		System.out.println("================================================================================");
 	}

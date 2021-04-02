@@ -48,6 +48,9 @@ public class DocumentService {
 			Instances instances;
 			List<EventFeature> features = new ArrayList<>();
 			ArrayList<Attribute> attributes = MyAttributeBuilder.buildMyAttributesV1();
+			// geotag rule
+			boolean isLocalNews = masterNode.hasNonNull("local_score") && masterNode.get("local_score").doubleValue() > 0.5;
+
 			boolean isCelebrities = false;
 			boolean isEconomyMarkets = false;
 			boolean isSports = false;
@@ -94,14 +97,18 @@ public class DocumentService {
 			List<RFModelResult> cls = new ArrayList<>();
 			double[][] canditResults = randomForest.distributionsForInstances(instances);
 			for (int j = 0; j < canditResults.length; j++) {
+				JsonNode canditNode = canditNodes.get(j);
+				boolean canditIsLocalNews = canditNode.hasNonNull("local_score") && canditNode.get("local_score").doubleValue()>0.5;
+
 				double[] canditResult = canditResults[j];
 				EventFeature feature = features.get(j);
-				String cID = canditNodes.get(j).hasNonNull("_id") ? canditNodes.get(j).get("_id").textValue() : "";
+				String cID = canditNode.hasNonNull("_id") ? canditNode.get("_id").textValue() : "";
 				String label;
 				double diffScore = canditResult[0];
 				double evtScore = canditResult[1];
 				double score;
 				log.info(String.format("MODEL DEBUG: %s\t%s\t%.5f", mID, cID, evtScore));
+				log.info(String.format("MODEL DEBUG: %s\t%s\t%.5f", isLocalNews, canditIsLocalNews, feature.getStrictGeoRatio()));
 				//模型结果后处理
 				if ((isEconomyMarkets && evtScore > 0.98) ||
 					(isCelebrities && evtScore > 0.95) ||
@@ -123,13 +130,20 @@ public class DocumentService {
 					(aboutFauci && evtScore > 0.85) ||
 					(!isEconomyMarkets && !isSports && !isWeather && !aboutFauci && evtScore > 0.5)
 				) {
-					label = "EVENT";
-					score = evtScore;
+					// geotag rule
+					if (isLocalNews && canditIsLocalNews && feature.getStrictGeoRatio() != null && feature.getStrictGeoRatio()<0.1) {
+						label = "DIFF";
+						score = 0.5f;
+						log.info("No geotag overalap");
+					}else {
+						label = "EVENT";
+						score = evtScore;
+					}
 				} else {
 					label = "DIFF";
 					score = diffScore;
 				}
-				
+
 				cls.add(new RFModelResult(
 					cID, label, score, BooleanUtils.isTrue(isDebug) ? feature : null
 				));
