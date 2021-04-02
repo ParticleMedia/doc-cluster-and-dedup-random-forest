@@ -265,7 +265,7 @@ public class EventFeature {
 	 * Average Length
 	 */
 	private Double geoRatio;
-	
+	private Double strictGeoRatio;
 	private Double geoLength;
 	
 	private Integer categoryIndex;
@@ -476,7 +476,8 @@ public class EventFeature {
 	    //GEO Tag
 	    JsonNode mGeo = masterNode.has("geotag") ? masterNode.get("geotag") : masterNode.get("geotag_v2");
 	    JsonNode cGeo = canditNode.has("geotag") ? canditNode.get("geotag") : canditNode.get("geotag_v2");
-	    this.geoRatio = geotagOverlapRatio(mGeo, cGeo);
+	    this.geoRatio = geotagOverlapRatio(mGeo, cGeo, Boolean.FALSE);
+	    this.strictGeoRatio = geotagOverlapRatio(mGeo, cGeo, Boolean.TRUE);
 	    this.geoLength = geotagAverageLength(mGeo, cGeo);
 	    
 	    //Category Index : Huffman feature encoding for wide & deep model
@@ -733,6 +734,7 @@ public class EventFeature {
 	public Double getGeoRatio() {
 		return geoRatio;
 	}
+	public Double getStrictGeoRatio(){ return strictGeoRatio;}
 	
 	public Double getGeoLength() {
 		return geoLength;

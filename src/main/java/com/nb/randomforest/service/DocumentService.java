@@ -108,6 +108,7 @@ public class DocumentService {
 				double evtScore = canditResult[1];
 				double score;
 				log.info(String.format("MODEL DEBUG: %s\t%s\t%.5f", mID, cID, evtScore));
+				log.info(String.format("MODEL DEBUG: %s\t%s\t%.5f", isLocalNews, canditIsLocalNews, feature.getStrictGeoRatio()));
 				//模型结果后处理
 				if ((isEconomyMarkets && evtScore > 0.98) ||
 					(isCelebrities && evtScore > 0.95) ||
@@ -130,13 +131,14 @@ public class DocumentService {
 					(!isEconomyMarkets && !isSports && !isWeather && !aboutFauci && evtScore > 0.5)
 				) {
 					// geotag rule
-					if (isLocalNews && canditIsLocalNews && feature.getGeoRatio() != null && feature.getGeoRatio()<0.1) {
+					if (isLocalNews && canditIsLocalNews && feature.getStrictGeoRatio() != null && feature.getStrictGeoRatio()<0.1) {
 						label = "DIFF";
+						score = 0.5f;
 						log.info("No geotag overalap");
 					}else {
 						label = "EVENT";
+						score = evtScore;
 					}
-					score = evtScore;
 				} else {
 					label = "DIFF";
 					score = diffScore;
