@@ -2,3 +2,8 @@
 .idea/
 target/
 _local/
+.classpath
+.factorypath
+.gitignore.swp
+.project
+.settings/

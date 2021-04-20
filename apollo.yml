@@ -1,0 +1,8 @@
+doc-clu-dedup-random-forest:
+  build:
+    command: "mvn clean package -U"
+    image: registry2.nb.com/ubuntu/java8:vimcron
+    volume:
+      from: /data/cache/m2
+      to: /root/.m2
+    dockerfile: Dockerfile

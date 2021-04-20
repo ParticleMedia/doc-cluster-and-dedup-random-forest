@@ -1,0 +1,18 @@
+{{ if .Values.server.autoscale.enabled }}
+  {{- $autoscale := .Values.server.autoscale -}}
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "app-server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "app-server.labels" . | nindent 4 }}
+spec:
+  maxReplicas: {{ $autoscale.maxReplicas }}
+  minReplicas: {{ $autoscale.minReplicas }}
+  scaleTargetRef:
+    apiVersion: {{ $autoscale.apiVersion | default "apps/v1" }}
+    kind: {{ $autoscale.kind | default "Deployment" }}
+    name: {{ include "app-server.fullname" . }}
+  targetCPUUtilizationPercentage: {{ $autoscale.targetCPUUtilizationPercentage | default 70 }}
+  {{- end }}

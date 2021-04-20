@@ -1,0 +1,21 @@
+server:
+  autoscale:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 60
+  
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx-internal
+    nb.com/external-health-checks:  "http://doc-clu-dedup-random-forest.k8s.nb-prod.com/keepalive"
+  hosts:
+  - host: doc-clu-dedup-random-forest.k8s.nb-prod.com
+    paths:
+    - /
+
+server:
+  args:
+  - prod
+
