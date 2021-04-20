@@ -4,7 +4,9 @@ server:
     minReplicas: 2
     maxReplicas: 4
     targetCPUUtilizationPercentage: 60
-  
+  args:
+  - prod
+
 ingress:
   enabled: true
   annotations:
@@ -14,8 +16,4 @@ ingress:
   - host: doc-clu-dedup-random-forest.k8s.nb-prod.com
     paths:
     - /
-
-server:
-  args:
-  - prod
 
