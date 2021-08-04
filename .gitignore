@@ -7,3 +7,4 @@ _local/
 .gitignore.swp
 .project
 .settings/
+.DS_Store
