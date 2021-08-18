@@ -143,7 +143,7 @@ public class DocumentService {
 				EventFeature feature = features.get(i);
 				log.info(String.format(
 					"DUP MODEL DEBUG: %s\t%s\t%.5f", masterInfo.get("masterID").textValue(), candidateID, scores[i][1]));
-				if (scores[i][1] > 0.6) {
+				if (scores[i][1] > 0.58) {
 					results.add(new RFModelResult(candidateID, "DUP",
 						regularizeScore("DUP", scores[i][1]), BooleanUtils.isTrue(isDebug) ? feature : null));
 				} else {
@@ -194,7 +194,7 @@ public class DocumentService {
 		if (masterInfo.get("isWeather").asBoolean() && evtScore > 0.8 && feature.getGeoRatio() == null) return true;
 		if (masterInfo.get("aboutFauci").asBoolean() && evtScore > 0.85) return true;
 		if (!masterInfo.get("isEconomyMarkets").asBoolean() && !masterInfo.get("isSports").asBoolean()
-				&& !masterInfo.get("isWeather").asBoolean() && !masterInfo.get("aboutFauci").asBoolean()&& evtScore > 0.5) {
+				&& !masterInfo.get("isWeather").asBoolean() && !masterInfo.get("aboutFauci").asBoolean()&& evtScore > 0.44) {
 			return true;
 		}
 		return false;
