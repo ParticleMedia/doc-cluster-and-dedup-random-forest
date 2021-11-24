@@ -20,6 +20,7 @@ import weka.core.Instance;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.lang.System;
 
 /**
  * @author yuxi
@@ -44,7 +45,7 @@ public class DocumentServiceMultiThread {
 	StorageService storageService;
 
 
-	ExecutorService workers = Executors.newFixedThreadPool(4);
+	ExecutorService workers = Executors.newFixedThreadPool(8);
 
 
 	public void checkTextCategory(ObjectNode masterInfo, JsonNode masterNode) {
@@ -106,24 +107,6 @@ public class DocumentServiceMultiThread {
 		} catch (Exception e) {
 			log.info("EXCEPTION : getMasterInfo : " + e.getMessage(), e);
 			return mapper.createObjectNode();
-		}
-	}
-
-	public void preProcessForRFModel(Instances instances,
-								     List<EventFeature> features,
-								     ArrayList<Attribute> attributes,
-								     JsonNode masterNode,
-								     JsonNode candidateNodes) {
-		try {
-			int classIndex = instances.numAttributes() - 1;
-			instances.setClassIndex(classIndex);
-			for (JsonNode candidateNode : candidateNodes) {
-				EventFeature feature = new EventFeature(masterNode, candidateNode, null);
-				features.add(feature);
-				instances.add(feature.toInstanceV1());
-			}
-		} catch (Exception e) {
-			log.info("EXCEPTION : preProcessForRFModel : " + e.getMessage(), e);
 		}
 	}
 
@@ -231,25 +214,35 @@ public class DocumentServiceMultiThread {
 		}
 	}
 
-	public List<RFModelResult> calModelResult(List<EventFeature> features,
-									 		  Instances instances, 
-									 		  ObjectNode masterInfo,
-									 		  JsonNode candidateNodes,
-									 		  Boolean isDebug) {
+	/**
+	 *
+	 */
+	public List<RFModelResult> calCandidatesClusterInfo(JsonNode masterNode, JsonNode candidateNodes, Boolean isDebug) {
 		try {
+			ObjectNode masterInfo = getMasterInfo(masterNode);
+
+			ArrayList<Attribute> attributes = MyAttributeBuilder.buildMyAttributesV1();
+			Instances dataset = new Instances(UUID.randomUUID().toString(), attributes, 1);
+			dataset.setClassIndex(dataset.numAttributes() - 1);
+
 			Collection<Callable<RFModelResult>> tasks = new ArrayList<Callable<RFModelResult>>();
-			for (int i = 0; i < candidateNodes.size(); i++) {
-				final String candidateID =
-					candidateNodes.get(i).hasNonNull("_id") ? candidateNodes.get(i).get("_id").textValue() : "";
-				final EventFeature feature = features.get(i);
-				final Instance instance = instances.get(i);
+			for (JsonNode candidateNode : candidateNodes) {
 				tasks.add(new Callable<RFModelResult>() {
 					public RFModelResult call() {
-						RFModelResult result =
-							new RFModelResult(candidateID, "DIFF", 0.0, BooleanUtils.isTrue(isDebug) ? feature : null);
-						runDupClassification(result, candidateID, feature, instance, masterInfo);
-						runEvtClassification(result, candidateID, feature, instance, masterInfo);
-						return result;
+						String candidateID = candidateNode.hasNonNull("_id") ? candidateNode.get("_id").textValue() : "";
+						try {
+							EventFeature feature = new EventFeature(masterNode, candidateNode, null);
+							RFModelResult result =
+								new RFModelResult(candidateID, "DIFF", 0.0, BooleanUtils.isTrue(isDebug) ? feature : null);
+							Instance instance = feature.toInstanceV1();
+							instance.setDataset(dataset);
+							runDupClassification(result, candidateID, feature, instance, masterInfo);
+							runEvtClassification(result, candidateID, feature, instance, masterInfo);
+							return result;
+						} catch (Exception e) {
+							log.info("EXCEPTION : cal model score : " + e.getMessage(), e);
+							return new RFModelResult(candidateID, "DIFF", 0.0, null);
+						}
 					}
 				});
 			}
@@ -261,32 +254,10 @@ public class DocumentServiceMultiThread {
 			}
 			return results;
 		} catch (Exception e) {
-			log.info("EXCEPTION : calModelResult : " + e.getMessage(), e);
-			return Collections.emptyList();
-		}
-	}
-
-	/**
-	 *
-	 */
-	public List<RFModelResult> calCandidatesClusterInfo(JsonNode masterNode, JsonNode candidateNodes, Boolean isDebug) {
-		try {
-			ObjectNode masterInfo = getMasterInfo(masterNode);
-
-			// 预处理 for RF model
-			List<EventFeature> features = new ArrayList<>();
-			ArrayList<Attribute> attributes = MyAttributeBuilder.buildMyAttributesV1();
-			Instances instances = new Instances(UUID.randomUUID().toString(), attributes, 1);
-			preProcessForRFModel(instances, features, attributes, masterNode, candidateNodes);
-
-			List<RFModelResult> results = calModelResult(features, instances, masterInfo, candidateNodes, isDebug);
-			return results;
-		} catch (Exception e) {
 			log.info("EXCEPTION : CAL_CANDIDATES : " + e.getMessage(), e);
 			return Collections.emptyList();
 		}
 	}
-	
 	
 	public List<RFModelResult> calCandidatesClusterDetails(String mID, List<String> cIDs) {
 		try {
