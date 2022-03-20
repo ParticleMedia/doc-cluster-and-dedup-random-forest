@@ -1,0 +1,84 @@
+# Default values for monica k8s.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: "doc-clu-dedup-random-forest-es-us"
+
+environment:
+  apm: "prod"
+  log_level: "INFO"
+
+server:
+  autoscale:
+    enabled: false
+    replicaCount: 1
+
+  image:
+    repository: registry2.nb.com/doc-clu-dedup-random-forest-es-us
+    tag: k8s-migration
+    pullPolicy: Always
+
+  annotations:
+    prometheus.io/scrape: 'false'
+
+  podSecurityContext: { }
+
+  deploymentStrategy:
+    type: RollingUpdate
+
+  args: []
+
+  lifecycle:
+    preStop:
+      exec:
+        command: ["/bin/sh", "-c", "/bin/sleep 30"]
+
+  env_extra: []
+
+  resources:
+    limits:
+      cpu: 3000m
+      memory: 5000Mi
+    requests:
+      cpu: 500m
+      memory: 3000Mi
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  volumeMounts: []
+
+  volumes: []
+
+  ports:
+   - name: http
+     containerPort: 8181
+     protocol: TCP
+
+  readinessProbe:
+    httpGet:
+      path: /keepalive
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 5
+    failureThreshold: 10
+
+  livenessProbe:
+    httpGet:
+      path: /keepalive
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 5
+    failureThreshold: 10
+
+service:
+  type: ClusterIP
+  port: 80
+  containerPort: 8181
+
+ingress:
+  enabled: false
