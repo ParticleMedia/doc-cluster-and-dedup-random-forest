@@ -1,7 +1,7 @@
 server:
   autoscale:
     enabled: false
-    replicaCount: 2
+  replicaCount: 2
   args:
   - prod-es-us
 
