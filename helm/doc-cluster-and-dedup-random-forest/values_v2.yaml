@@ -3,7 +3,7 @@ fullnameOverride: "doc-clu-dedup-random-forest-v2"
 server:
   autoscale:
     enabled: false
-  replicaCount: 2
+  replicaCount: 3
   args:
   - prod
 
