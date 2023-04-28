@@ -27,6 +27,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
  */
 @RestController
 @RequestMapping(name = "document", path = "/document")
+@Slf4j
 public class DocumentEndpoint {
 	
 	@Autowired
@@ -46,6 +47,9 @@ public class DocumentEndpoint {
 	) {
 		JsonNode masterNode = objectMapper.valueToTree(postBody.get("master"));
 		JsonNode candidates = objectMapper.valueToTree(postBody.get("candidates"));
+		String masterID = masterNode.hasNonNull("_id") ? masterNode.get("_id").textValue() : "";
+		log.info(String.format(
+			"score candidates for %s, num_of_candidates: %d", masterID, candidates.size()));
 		if (candidates.size() > 0) {
 			return documentService.calCandidatesClusterInfo(masterNode, candidates, false);
 		} else {
