@@ -1,9 +1,22 @@
 package com.nb.randomforest.utils;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.BasicDBObject;
-import com.mongodb.client.*;
+import static com.mongodb.client.model.Filters.*;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.InputStreamReader;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -15,12 +28,14 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.bson.Document;
 
-import java.io.*;
-import java.nio.file.Paths;
-import java.util.*;
-
-import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.Filters.in;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.BasicDBObject;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.MongoDatabase;
 
 /**
  * @author yuxi
@@ -38,7 +53,7 @@ public class FileUtils {
 	public static BasicDBObject fields = new BasicDBObject();
 	
 	static {
-		String uriStatic = "mongodb://172.24.25.74/staticFeature";
+		String uriStatic = "mongodb://mongos.content.content:" + System.getenv("CONTENT_MONGO_PASSWORD") + "@content-mongos.mongos.nb.com/?readPreference=secondaryPreferred&authSource=admin";
 		MongoClient clientStatic = MongoClients.create(uriStatic);
 		MongoDatabase dbStatic = clientStatic.getDatabase("staticFeature");
 		collectionStatic = dbStatic.getCollection("document");
@@ -481,7 +496,9 @@ public class FileUtils {
 //		files.add(new File("/Users/yuxi/NB/RandomForest/_local/append_0926~0930/dp_0926_0930_royal"));
 //		files.add(new File("/Users/yuxi/NB/RandomForest/_local/append_0926~0930/dp_0926_0930_tech"));
 //		files.add(new File("/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair"));
-		files.add(new File("/Users/yuxi/NB/RandomForest/_local/train/20210303/train"));
+//		files.add(new File("/Users/yuxi/NB/RandomForest/_local/train/20210303/train"));
+		files.add(new File("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/train"));
+		files.add(new File("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/test"));
 		for (File file : files) {
 			dumpDocFieldsFromDocPairFile(file);
 		}
