@@ -156,7 +156,7 @@ public class ARFFUtils {
     
     
     public static void main(String[] args) throws Exception {
-        buildARFFV3("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/train_fields", "train");
-        // buildARFFV3("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/test_fields", "test");
+        // buildARFFV3("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/train_fields", "train");
+        buildARFFV3("/mnt/nlp/albert/clustering/data/dedup_train_data_v3/test_fields", "test");
     }
 }
