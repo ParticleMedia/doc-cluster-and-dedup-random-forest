@@ -178,6 +178,12 @@
         </dependency>
 
         <dependency>
+            <groupId>ml.dmlc</groupId>
+            <artifactId>xgboost4j_2.13</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.5</version>

@@ -1,13 +1,17 @@
+import itertools
 from pathlib import Path
 import random
 import time
 
 import numpy as np
+from sklearn.model_selection import *
 import xgboost as xgb
 
 data_path = Path('/mnt/nlp/albert/clustering/data/dedup_train_data_v3')
 
-def get_dmatrix(data_path, format='arff', val=0.1):
+def get_data(data_path, format='arff', val=0.1, seed=None, remove_feat=None):
+    if remove_feat is None:
+        remove_feat = set()
     with open(data_path) as fin:
         arff_data = fin.read().split('@data')[1].strip('\n')
     features = []
@@ -28,20 +32,59 @@ def get_dmatrix(data_path, format='arff', val=0.1):
                 row.append(float(el))
         if label is None:
             raise ValueError('label not found')
+        row = [n for i, n in enumerate(row) if i not in remove_feat]
         features.append(row)
         labels.append(label)
-    split = int(len(lines) * (1 - val))
-    dtrain = xgb.DMatrix(features[:split], labels[:split], weight=None, missing=np.nan)
-    if val > 0:
-        dval = xgb.DMatrix(features[split:], labels[split:], weight=None, missing=np.nan)
-        return dtrain, dval
+    if val == 0:
+        X_train, y_train = np.array(features), np.array(labels)
+        return X_train, y_train
     else:
-        return dtrain
-        
+        X_train, X_test, y_train, y_test = train_test_split(np.array(features), np.array(labels), random_state=seed, test_size=val)
+        return X_train, X_test, y_train, y_test
+
 
 def train_xgboost(data_path, seed=42):
-    random.seed(seed)
-    dtrain, dval = get_dmatrix(data_path/'train.arff', val=0.1)
+    remove_feat = None # {48, 50, 43, 39}
+    X_train, X_test, y_train, y_test = get_data(data_path/'train.arff', val=0.1, seed=seed, remove_feat=remove_feat)
+    print(X_train.shape)
+    num_class = len(np.unique(y_train))
+    params = {
+        "max_depth": [7, 8],
+        "subsample": [0.6, 0.8],
+        "gamma": [1],
+        "learning_rate": [0.05],
+    }
+    keys = list(params.keys())
+    permutations = itertools.product(*list(params.values()))
+    best_score = 0
+    for perm in permutations:
+        kwargs = {k: v for k, v in zip(keys, perm)}
+        model = xgb.XGBClassifier(
+            n_estimators=1000,
+            objective="multi:softprob",
+            silent=True,
+            nthread=2,
+            missing=np.nan,
+            eval_metric="auc",
+            early_stopping_rounds=5,
+            random_state=seed,
+            verbosity=0,
+            num_class=num_class,
+            **kwargs
+        )
+        model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=None)
+        print(kwargs, model.best_iteration, model.best_score)
+        if model.best_score > best_score:
+            print('    ^ new best')
+            best_score = model.best_score
+            model.save_model(data_path/"xgb_model.json")
+    model.load_model(data_path/"xgb_model.json")
+    predict(data_path, model, remove_feat=remove_feat)
+
+def train_xgboost_xgb(data_path, seed=42):
+    X_train, X_test, y_train, y_test = get_data(data_path/'train.arff', val=0.1, seed=seed)
+    dtrain = xgb.DMatrix(X_train, y_train, weight=None, missing=np.nan)
+    dval = xgb.DMatrix(X_test, y_test, weight=None, missing=np.nan)
     print(dtrain.num_row(), dtrain.num_col())
     num_class = len(np.unique(dtrain.get_label()))
     param = {
@@ -67,16 +110,19 @@ def train_xgboost(data_path, seed=42):
     bst.dump_model(data_path/"xgb_dump.txt")
     predict(data_path, bst)
 
-def predict(data_path, bst, dval=None):
-    if dval is None:
-        dval = get_dmatrix(data_path/'test.arff', val=0)
+def predict(data_path, bst, remove_feat=None):
+    fmt = 'xgb' if isinstance(bst, xgb.Booster) else 'sk'
+    X_test, y_test = get_data(data_path/'test.arff', val=0, remove_feat=remove_feat)
     # run prediction
-    preds = bst.predict(dval)
-    labels = dval.get_label()
+    if fmt == 'xgb':
+        dval = xgb.DMatrix(X_test, y_test, weight=None, missing=np.nan)
+        preds = bst.predict(dval)
+    else:
+        preds = bst.predict_proba(X_test)
     correct = 0
     confusion = [[0]*3 for _ in range(3)]
     with open(data_path/'badcase', 'w') as fout:
-        for pred, label in zip(preds, labels):
+        for pred, label in zip(preds, y_test):
             difScr, evtScr, dupScr = pred
             if dupScr >= evtScr and dupScr >= difScr:
                 pCls = "DUP"
@@ -110,5 +156,9 @@ def run_xgboost(data_path):
         print(t)
 
 if __name__ == '__main__':
-    # train_xgboost(data_path)
+    st = time.time()
+    train_xgboost(data_path)
     run_xgboost(data_path)
+    
+    et = time.time()
+    print(f'took {et-st:.2f}s')

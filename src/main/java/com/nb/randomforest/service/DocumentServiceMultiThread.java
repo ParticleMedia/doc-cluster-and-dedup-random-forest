@@ -8,6 +8,8 @@ import com.nb.randomforest.entity.EventFeature;
 import com.nb.randomforest.entity.resource.RFModelResult;
 import com.nb.randomforest.utils.MyAttributeBuilder;
 import lombok.extern.slf4j.Slf4j;
+import ml.dmlc.xgboost4j.java.Booster;
+import ml.dmlc.xgboost4j.java.DMatrix;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +22,6 @@ import weka.core.Instance;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.lang.System;
 
 /**
  * @author yuxi
@@ -32,6 +33,10 @@ public class DocumentServiceMultiThread {
 	
 	@Autowired
 	ObjectMapper mapper;
+	
+	@Autowired
+	@Qualifier("DupXGBoost")
+	Booster dupXGBooster;
 	
 	@Autowired
 	@Qualifier("DupRandomForest")
@@ -115,6 +120,36 @@ public class DocumentServiceMultiThread {
 			return 0.8+score*0.2;
 		} else {
 			return score*0.8;
+		}
+	}
+
+	public void runXGBClassification(RFModelResult result,
+								     String candidateID,
+									 float[] feats,
+									 ObjectNode masterInfo) {
+		try {
+			DMatrix dMatrix = new DMatrix(feats, 1, feats.length, Float.NaN);
+			float[][] predicts = dupXGBooster.predict(dMatrix);
+			double difScr = predicts[0][0];
+			double evtScr = predicts[0][1];
+			double dupScr = predicts[0][2];
+			double score = Math.max(difScr, Math.max(evtScr, dupScr));
+			log.info("XGB MODEL DEBUG: {}\t{}\t{}", masterInfo.get("masterID").textValue(), candidateID, score);
+			if (difScr >= evtScr && difScr >= dupScr) {
+				result.setLabel("DIFF");
+				result.setScore(difScr);
+			} else if (evtScr >= difScr && evtScr >= dupScr) {
+				result.setLabel("EVENT");
+				result.setScore(evtScr);
+			} else if (dupScr >= evtScr && dupScr >= difScr) {
+				result.setLabel("DUP");
+				result.setScore(dupScr);
+			} else {
+				result.setLabel("DIFF");
+				result.setScore(difScr);
+			}
+		} catch (Exception e) {
+			log.info("EXCEPTION : runDupClassification : " + e.getMessage(), e);
 		}
 	}
 
@@ -217,8 +252,10 @@ public class DocumentServiceMultiThread {
 	/**
 	 *
 	 */
-	public List<RFModelResult> calCandidatesClusterInfo(JsonNode masterNode, JsonNode candidateNodes, Boolean isDebug) {
+	public List<RFModelResult> calCandidatesClusterInfo(JsonNode masterNode, JsonNode candidateNodes, Boolean isDebug, String version) {
 		try {
+			version = version == null ? "v2" : version;
+			final String versionF = version;
 			ObjectNode masterInfo = getMasterInfo(masterNode);
 
 			ArrayList<Attribute> attributes = MyAttributeBuilder.buildMyAttributesV1();
@@ -234,10 +271,15 @@ public class DocumentServiceMultiThread {
 							EventFeature feature = new EventFeature(masterNode, candidateNode, null);
 							RFModelResult result =
 								new RFModelResult(candidateID, "DIFF", 0.0, BooleanUtils.isTrue(isDebug) ? feature : null);
-							Instance instance = feature.toInstanceV1();
-							instance.setDataset(dataset);
-							runDupClassification(result, candidateID, feature, instance, masterInfo);
-							runEvtClassification(result, candidateID, feature, instance, masterInfo);
+							if (versionF.equals("xgb")) {
+								float[] feats = feature.toArrayV3();
+								runXGBClassification(result, candidateID, feats, masterInfo);
+							} else {
+								Instance instance = feature.toInstanceV1();
+								instance.setDataset(dataset);
+								runDupClassification(result, candidateID, feature, instance, masterInfo);
+								runEvtClassification(result, candidateID, feature, instance, masterInfo);
+							}
 							return result;
 						} catch (Exception e) {
 							log.info("EXCEPTION : cal model score : " + e.getMessage(), e);
@@ -267,7 +309,7 @@ public class DocumentServiceMultiThread {
 			for (String cID : cIDs) {
 				cNodes.add(docNodes.get(cID));
 			}
-			return this.calCandidatesClusterInfo(mNode, cNodes, true);
+			return this.calCandidatesClusterInfo(mNode, cNodes, true, "v2");
 		} catch (Exception e) {
 			e.printStackTrace();
 			log.info("EXCEPTION : CAL_CANDIDATES : " + e.getMessage(), e);

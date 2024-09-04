@@ -14,6 +14,8 @@ import com.pmi.serving.metrics.MetricsFactoryUtil;
 import com.pmi.serving.metrics.OnDemandMetricsFactory;
 import com.pmi.serving.metrics.reporter.opentsdb.HttpOpenTsdbClient;
 import com.pmi.serving.metrics.reporter.opentsdb.OpenTsdbClient;
+import ml.dmlc.xgboost4j.java.Booster;
+import ml.dmlc.xgboost4j.java.XGBoost;
 import org.bson.Document;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import weka.classifiers.trees.RandomForest;
 import weka.core.SerializationHelper;
 
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.Map;
@@ -50,6 +53,12 @@ public class WebDataConfig {
 		return MetricsFactoryUtil.getRegisteredFactory();
 	}
 	
+	@Bean("DupXGBoost")
+	public Booster dupXGBoost() throws Exception {
+		InputStream modelStream = WebDataConfig.class.getClassLoader().getResourceAsStream("model/xgb_model.json");
+		Booster booster = XGBoost.loadModel(modelStream);
+		return booster;
+	}
 	
 	@Bean("DupRandomForest")
 	public RandomForest dupRandomForest() throws Exception {

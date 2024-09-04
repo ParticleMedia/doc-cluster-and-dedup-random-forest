@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.nb.randomforest.entity.EventFeature;
 
 import weka.classifiers.Evaluation;
@@ -525,7 +526,9 @@ public class ModelUtils {
                 ArrayNode candidatesArray = objectMapper.createArrayNode();
                 candidatesArray.add(cNode);
                 rootNode.set("candidates", candidatesArray);
-                JsonNode res = FileUtils.post("http://doc-clu-dedup-random-forest-v2.k8s.nb-prod.com/document", rootNode);
+                rootNode.set("version", new TextNode("xgb"));
+                // JsonNode res = FileUtils.post("http://doc-clu-dedup-random-forest-v2.k8s.nb-prod.com/document", rootNode);
+                JsonNode res = FileUtils.post("http://localhost:8181/document", rootNode);
                 res = res.get(0);
                 pCls = res.get("label").asText();
                 double score = res.get("score").asDouble();

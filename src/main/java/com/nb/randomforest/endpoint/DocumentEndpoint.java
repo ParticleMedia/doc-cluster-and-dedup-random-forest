@@ -2,24 +2,19 @@ package com.nb.randomforest.endpoint;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nb.randomforest.entity.resource.RFModelResult;
 import com.nb.randomforest.service.DocumentServiceMultiThread;
-import com.nb.randomforest.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.extern.slf4j.Slf4j;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 /**
@@ -48,11 +43,17 @@ public class DocumentEndpoint {
 	) {
 		JsonNode masterNode = objectMapper.valueToTree(postBody.get("master"));
 		JsonNode candidates = objectMapper.valueToTree(postBody.get("candidates"));
+		JsonNode versionNode = objectMapper.valueToTree(postBody.get("version"));
+		String version = null;
+		if (versionNode != null && versionNode.isTextual()) {
+			version = versionNode.asText();
+		}
+		
 		String masterID = masterNode.hasNonNull("_id") ? masterNode.get("_id").textValue() : "";
 		log.info(String.format(
 			"score candidates for %s, num_of_candidates: %d", masterID, candidates.size()));
 		if (candidates.size() > 0) {
-			return documentService.calCandidatesClusterInfo(masterNode, candidates, false);
+			return documentService.calCandidatesClusterInfo(masterNode, candidates, false, version);
 		} else {
 			return Collections.emptyList();
 		}
