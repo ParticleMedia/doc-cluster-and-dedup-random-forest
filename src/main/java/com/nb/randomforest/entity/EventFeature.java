@@ -773,6 +773,72 @@ public class EventFeature {
 		return new DenseInstance(1, doubleArray);
 	}
 	
+	public float[] toArrayV3() {
+		List<Double> doubleList = new ArrayList<>();
+		doubleList.add(titleDist);
+		doubleList.add(titleRatio);
+		doubleList.add(titleLength);
+		doubleList.add(sameSRC);
+		doubleList.add(cWordSpan);
+		doubleList.add(paragraphSpan);
+		doubleList.add(epochSpan);
+		doubleList.add(insertSpan);
+		doubleList.add(simhashDist);
+		doubleList.add(imghashDist);
+		doubleList.add(facehashDist);
+		doubleList.add(cKWSRatio);
+		doubleList.add(cKWSLength);
+		doubleList.add(tKWSRatio);
+		doubleList.add(tKWSLength);
+		doubleList.add(hKWSRatio);
+		doubleList.add(hKWSLength);
+		doubleList.add(channelRatio);
+		doubleList.add(channelLength);
+		doubleList.add(cOrgRatioNE);
+		doubleList.add(cOrgRatioSP);
+		doubleList.add(cOrgLengthNE);
+		doubleList.add(cOrgLengthSP);
+		doubleList.add(cLocRatioNE);
+		doubleList.add(cLocRatioSP);
+		doubleList.add(cLocLengthNE);
+		doubleList.add(cLocLengthSP);
+		doubleList.add(cPerRatioNE);
+		doubleList.add(cPerRatioSP);
+		doubleList.add(cPerLengthNE);
+		doubleList.add(cPerLengthSP);
+		doubleList.add(cNUMRatioSP);
+		doubleList.add(cNUMLengthSP);
+		doubleList.add(cTimRatioSP);
+		doubleList.add(cTimLengthSP);
+		doubleList.add(tOrgRatioNE);
+		doubleList.add(tOrgRatioSP);
+		doubleList.add(tOrgLengthNE);
+		doubleList.add(tOrgLengthSP);
+		doubleList.add(tLocRatioNE);
+		doubleList.add(tLocRatioSP);
+		doubleList.add(tLocLengthNE);
+		doubleList.add(tLocLengthSP);
+		doubleList.add(tPerRatioNE);
+		doubleList.add(tPerRatioSP);
+		doubleList.add(tPerLengthNE);
+		doubleList.add(tPerLengthSP);
+		doubleList.add(tNUMRatioSP);
+		doubleList.add(tNUMLengthSP);
+		doubleList.add(tTimRatioSP);
+		doubleList.add(tTimLengthSP);
+		doubleList.add(catRatio);
+		doubleList.add(catLength);
+		doubleList.add(geoRatio);
+		doubleList.add(geoLength);
+		float[] floatArray = new float[doubleList.size()];
+		for (int i = 0; i < doubleList.size(); i++) {
+			Double d = doubleList.get(i);
+			d = d == null ? Utils.missingValue() : d;
+			floatArray[i] = (float) d.doubleValue();
+		}
+		return floatArray;
+	}
+	
 	public Instance toInstanceV1() {
 		List<Double> doubleList = new ArrayList<>();
 		doubleList.add(titleDist);

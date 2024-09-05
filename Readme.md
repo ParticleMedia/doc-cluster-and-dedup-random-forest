@@ -1,3 +1,8 @@
+# Related
+This repository hosts models which get called by the clustering servers. The RandomForest models output the similarity score between a pair of docs (to interpret the score as 0.0 = DIFF, 1.0 = EVENT or DUP). The newer XGBoost model classifies a pair of docs as DIFF, EVENT, or DUP, with the three probability scores adding to 1.
+1. v1 clustering server https://github.com/ParticleMedia/doc-cluster-and-dedup-service-java
+2. v2 clustering server https://github.com/ParticleMedia/doc-cluster-and-dedup-service-python
+
 # 从零训练
 ## 步骤说明
 1. 从线上获取 doc pair 格式为 : doc_id + \t + doc_id

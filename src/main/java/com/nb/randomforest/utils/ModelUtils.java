@@ -1,20 +1,38 @@
 package com.nb.randomforest.utils;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.nb.randomforest.entity.EventFeature;
-import org.apache.commons.lang3.StringUtils;
-import weka.classifiers.trees.RandomForest;
 
 import weka.classifiers.Evaluation;
-import weka.core.*;
+import weka.classifiers.trees.RandomForest;
+import weka.core.Attribute;
+import weka.core.Instance;
+import weka.core.Instances;
+import weka.core.SerializationHelper;
 import weka.core.converters.ArffLoader;
 import weka.core.converters.ConverterUtils.DataSource;
-
-import java.io.*;
-import java.nio.file.Paths;
-import java.util.*;
 
 public class ModelUtils {
     
@@ -473,6 +491,120 @@ public class ModelUtils {
         System.out.println("## RCR EVT    : " + String.valueOf(tpEVT) + "/" + String.valueOf(rpEVT) + "=" + String.valueOf(rcrEVT));
     }
     
+    /**
+     * 基于 Feature V3(55) + Estimate Data => Model Estimate
+     * But has 3 output classes DIFF EVENT DUP
+     */
+    public static void predictEstimateDataFeatureV3(RandomForest forest, String docPairFile, boolean callOnline) throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        
+        ArrayList<Attribute> attributes = MyAttributeBuilder.buildMyAttributesV3();
+        
+        int[][] confusion = new int[3][3];
+        int right = 0;
+        int total = 0;
+        
+        BufferedReader br = new BufferedReader(new FileReader(new File(docPairFile)));
+        String badpath = Paths.get(Paths.get(docPairFile).getParent().toString(), callOnline ? "badcase_online" : "badcase").toString();
+        BufferedWriter bw = new BufferedWriter(new FileWriter(new File(badpath)));
+        bw.write("Master\tCandidate\tDIF_WEIGHT\tEVT_WEIGHT\tDUP_WEIGHT\tPredict\tReal");
+        bw.write("\n");
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            String[] docPairFields = line.split("\t");
+            String mDoc = docPairFields[0];
+            String cDoc = docPairFields[1];
+            String pCls = "";
+            String rCls = docPairFields[2];
+            JsonNode mNode = objectMapper.readTree(docPairFields[4]);
+            JsonNode cNode = objectMapper.readTree(docPairFields[5]);
+            double[] distribute = {0, 0, 0};
+            double difScr, evtScr, dupScr;
+            if (callOnline) {
+                ObjectNode rootNode = objectMapper.createObjectNode();
+                rootNode.set("master", mNode);
+                ArrayNode candidatesArray = objectMapper.createArrayNode();
+                candidatesArray.add(cNode);
+                rootNode.set("candidates", candidatesArray);
+                rootNode.set("version", new TextNode("xgb"));
+                // JsonNode res = FileUtils.post("http://doc-clu-dedup-random-forest-v2.k8s.nb-prod.com/document", rootNode);
+                JsonNode res = FileUtils.post("http://localhost:8181/document", rootNode);
+                res = res.get(0);
+                pCls = res.get("label").asText();
+                double score = res.get("score").asDouble();
+                difScr = pCls.equals("DIFF") ? score : 0;
+                evtScr = pCls.equals("EVENT") ? score : 0;
+                dupScr = pCls.equals("DUP") ? score : 0;
+            } else {
+                EventFeature feature = new EventFeature(mNode, cNode, rCls);
+                Instances instances = new Instances(UUID.randomUUID().toString(), attributes, 1);
+                instances.setClassIndex(instances.numAttributes() - 1);
+                instances.add(feature.toInstanceV1());
+                distribute = forest.distributionsForInstances(instances)[0];
+            
+                difScr = distribute[0];
+                evtScr = distribute[1];
+                dupScr = distribute[2];
+                
+                int method = 3;
+                if (method == 1) {
+                    if (dupScr >= evtScr && dupScr >= difScr) {
+                        pCls = "DUP";
+                    } else if (evtScr >= dupScr && evtScr >= difScr) {
+                        pCls = "EVENT";
+                    } else {
+                        pCls = "DIFF";
+                    }
+                } else if (method == 2) {
+                    if (dupScr - evtScr >= 0.0 && dupScr - difScr >= 0.2) {
+                        pCls = "DUP";
+                    } else if (evtScr - dupScr >= 0.0 && evtScr - difScr >= 0.2) {
+                        pCls = "EVENT";
+                    } else if (Math.abs(evtScr - dupScr) <= 0.2 && difScr < 0.3) {
+                        pCls = "EVENT";
+                    } else {
+                        pCls = "DIFF";
+                    }
+                } else if (method == 3) {
+                    if (dupScr >= evtScr && dupScr >= difScr) {
+                        pCls = "DUP";
+                    } else if (evtScr >= dupScr && evtScr - difScr >= 0.2) {
+                        pCls = "EVENT";
+                    } else {
+                        pCls = "DIFF";
+                    }
+                }
+            }
+            
+            int pIndex = pCls.equals("DIFF") ? 0 : pCls.equals("EVENT") ? 1 : 2;
+            int rIndex = rCls.equals("DIFF") ? 0 : rCls.equals("EVENT") ? 1 : 2;
+            confusion[rIndex][pIndex]++;
+            
+            if (!StringUtils.equals(rCls, pCls)) {
+                bw.write(mDoc + "\t" + cDoc + "\t" + String.valueOf(difScr) + "\t"
+                    + String.valueOf(evtScr) + "\t" + String.valueOf(dupScr) + "\t"
+                    + pCls + "\t" + rCls);
+                bw.write("\n");
+            } else {
+                right++;
+            }
+            total++;
+        }
+        
+        bw.close();
+        
+        String summary = "Accuracy: " + String.valueOf((float) right/total);
+        summary += "\nReal\\Predicted\tDIFF\tEVENT\tDUP";
+        summary += "\nDIFF\t" + Arrays.stream(confusion[0]).mapToObj(String::valueOf).collect(Collectors.joining("\t"));
+        summary += "\nEVENT\t" + Arrays.stream(confusion[1]).mapToObj(String::valueOf).collect(Collectors.joining("\t"));
+        summary += "\nDUP\t" + Arrays.stream(confusion[2]).mapToObj(String::valueOf).collect(Collectors.joining("\t"));
+        System.out.println(summary);
+        String summpath = Paths.get(Paths.get(docPairFile).getParent().toString(), callOnline ? "summary_online" : "summary").toString();
+        BufferedWriter summw = new BufferedWriter(new FileWriter(new File(summpath)));
+        summw.write(summary);
+        summw.close();
+    }
+    
     
     /**
      *
@@ -605,39 +737,44 @@ public class ModelUtils {
     
     
     public static void main(String[] args) throws Exception {
+        boolean doTrain = false;
+        boolean doCompare = true;
+        
         /** Model Training & Evaluation **/
-//        String rootDir = "/Users/yuxi/NB/RandomForest/_local/train/20210303/";
-//        String trainARFFPath = Paths.get(rootDir, "train.arff").toString();
-//        String testARFFPath = Paths.get(rootDir, "train.arff").toString();
-//        Instances trainingDataSet = getDataSet(trainARFFPath);
-//        trainingDataSet.setClassIndex(trainingDataSet.numAttributes() - 1);
-//        Instances testingDataSet = getDataSet(testARFFPath);
-//        testingDataSet.setClassIndex(trainingDataSet.numAttributes() - 1);
-//        trainModel(rootDir, trainingDataSet, 100, 12, 12);
-    
-    
+        String rootDir = "/mnt/nlp/albert/clustering/data/dedup_train_data_v3/";
+        if (doTrain) {
+            String trainARFFPath = Paths.get(rootDir, "train.arff").toString();
+            //    String testARFFPath = Paths.get(rootDir, "test.arff").toString();
+            Instances trainingDataSet = getDataSet(trainARFFPath);
+            trainingDataSet.setClassIndex(trainingDataSet.numAttributes() - 1);
+            //    Instances testingDataSet = getDataSet(testARFFPath);
+            //    testingDataSet.setClassIndex(trainingDataSet.numAttributes() - 1);
+            trainModel(rootDir, trainingDataSet, 100, 12, 12);
+        }
+        
         /** Model Inference STD Estimate */
-        String onlineModelPath = "/Users/yuxi/NB/RandomForest/_local/train/20201117-deployed/forest.model";
-        String abtestModelPath = "/Users/yuxi/NB/RandomForest/_local/train/20210303/forest.model";
-//        RandomForest onlineForest = (RandomForest) SerializationHelper.read(onlineModelPath);
-        RandomForest abtestForest = (RandomForest) SerializationHelper.read(abtestModelPath);
-//        abtestForest.setPrintClassifiers(true);
-//        abtestForest.setComputeAttributeImportance(false);
-//        BufferedWriter bw = new BufferedWriter(new FileWriter(new File("/Users/yuxi/NB/RandomForest/_local/train/20210303/forest.out")));
-//        bw.write(abtestForest.toString());
-//        bw.close();
+        if (doCompare) {
+            String abtestModelPath = rootDir + "forest.model";
+            RandomForest abtestForest = (RandomForest) SerializationHelper.read(abtestModelPath);
+            // abtestForest.setPrintClassifiers(true);
+            // abtestForest.setComputeAttributeImportance(false);
+            // BufferedWriter bw = new BufferedWriter(new FileWriter(new File(rootDir + "forest.out")));
+            // bw.write(abtestForest.toString());
+            // bw.close();
+            
+
+            // String estimateDataPath = rootDir + "test_fields";
+            String estimateDataPath = "/mnt/nlp/albert/clustering/data/dedup_train_data/evt_test_fields";
+            predictEstimateDataFeatureV3(abtestForest, estimateDataPath, true);
+            System.out.println("==========================");
         
 
-        String estimateDataPath = "/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair_fields";
-        predictEstimateDataFeatureV1(abtestForest, estimateDataPath);
-        System.out.println("==========================");
-    
-
-//        String esLocal = "/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair_fields_local";
-//        String esNonlocal = "/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair_fields_nonlocal";
-//        predictEstimateDataFeatureV1(onlineForest, esLocal);
-//        System.out.println("==========================");
-//        predictEstimateDataFeatureV1(onlineForest, esNonlocal);
+    //        String esLocal = "/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair_fields_local";
+    //        String esNonlocal = "/Users/yuxi/NB/RandomForest/_local/estimate/estimate_doc_pair_fields_nonlocal";
+    //        predictEstimateDataFeatureV1(onlineForest, esLocal);
+    //        System.out.println("==========================");
+    //        predictEstimateDataFeatureV1(onlineForest, esNonlocal);
+        }
     }
     
     public static void main2(String[] args) throws Exception {
