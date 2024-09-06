@@ -511,84 +511,87 @@ public class ModelUtils {
         bw.write("\n");
         String line = null;
         while ((line = br.readLine()) != null) {
-            String[] docPairFields = line.split("\t");
-            String mDoc = docPairFields[0];
-            String cDoc = docPairFields[1];
-            String pCls = "";
-            String rCls = docPairFields[2];
-            JsonNode mNode = objectMapper.readTree(docPairFields[4]);
-            JsonNode cNode = objectMapper.readTree(docPairFields[5]);
-            double[] distribute = {0, 0, 0};
-            double difScr, evtScr, dupScr;
-            if (callOnline) {
-                ObjectNode rootNode = objectMapper.createObjectNode();
-                rootNode.set("master", mNode);
-                ArrayNode candidatesArray = objectMapper.createArrayNode();
-                candidatesArray.add(cNode);
-                rootNode.set("candidates", candidatesArray);
-                rootNode.set("version", new TextNode("xgb"));
-                // JsonNode res = FileUtils.post("http://doc-clu-dedup-random-forest-v2.k8s.nb-prod.com/document", rootNode);
-                JsonNode res = FileUtils.post("http://localhost:8181/document", rootNode);
-                res = res.get(0);
-                pCls = res.get("label").asText();
-                double score = res.get("score").asDouble();
-                difScr = pCls.equals("DIFF") ? score : 0;
-                evtScr = pCls.equals("EVENT") ? score : 0;
-                dupScr = pCls.equals("DUP") ? score : 0;
-            } else {
-                EventFeature feature = new EventFeature(mNode, cNode, rCls);
-                Instances instances = new Instances(UUID.randomUUID().toString(), attributes, 1);
-                instances.setClassIndex(instances.numAttributes() - 1);
-                instances.add(feature.toInstanceV1());
-                distribute = forest.distributionsForInstances(instances)[0];
-            
-                difScr = distribute[0];
-                evtScr = distribute[1];
-                dupScr = distribute[2];
+            try {
+                String[] docPairFields = line.split("\t");
+                String mDoc = docPairFields[0];
+                String cDoc = docPairFields[1];
+                String pCls = "";
+                String rCls = docPairFields[2];
+                JsonNode mNode = objectMapper.readTree(docPairFields[4]);
+                JsonNode cNode = objectMapper.readTree(docPairFields[5]);
+                double[] distribute = {0, 0, 0};
+                double difScr, evtScr, dupScr;
+                if (callOnline) {
+                    ObjectNode rootNode = objectMapper.createObjectNode();
+                    rootNode.set("master", mNode);
+                    ArrayNode candidatesArray = objectMapper.createArrayNode();
+                    candidatesArray.add(cNode);
+                    rootNode.set("candidates", candidatesArray);
+                    rootNode.set("version", new TextNode("v2"));
+                    JsonNode res = FileUtils.post("http://doc-clu-dedup-random-forest-v2.k8s.nb-prod.com/document", rootNode);
+                    // JsonNode res = FileUtils.post("http://localhost:8181/document", rootNode);
+                    Thread.sleep(100);
+                    res = res.get(0);
+                    pCls = res.get("label").asText();
+                    double score = res.get("score").asDouble();
+                    difScr = pCls.equals("DIFF") ? score : 0;
+                    evtScr = pCls.equals("EVENT") ? score : 0;
+                    dupScr = pCls.equals("DUP") ? score : 0;
+                } else {
+                    EventFeature feature = new EventFeature(mNode, cNode, rCls);
+                    Instances instances = new Instances(UUID.randomUUID().toString(), attributes, 1);
+                    instances.setClassIndex(instances.numAttributes() - 1);
+                    instances.add(feature.toInstanceV1());
+                    distribute = forest.distributionsForInstances(instances)[0];
                 
-                int method = 3;
-                if (method == 1) {
-                    if (dupScr >= evtScr && dupScr >= difScr) {
-                        pCls = "DUP";
-                    } else if (evtScr >= dupScr && evtScr >= difScr) {
-                        pCls = "EVENT";
-                    } else {
-                        pCls = "DIFF";
-                    }
-                } else if (method == 2) {
-                    if (dupScr - evtScr >= 0.0 && dupScr - difScr >= 0.2) {
-                        pCls = "DUP";
-                    } else if (evtScr - dupScr >= 0.0 && evtScr - difScr >= 0.2) {
-                        pCls = "EVENT";
-                    } else if (Math.abs(evtScr - dupScr) <= 0.2 && difScr < 0.3) {
-                        pCls = "EVENT";
-                    } else {
-                        pCls = "DIFF";
-                    }
-                } else if (method == 3) {
-                    if (dupScr >= evtScr && dupScr >= difScr) {
-                        pCls = "DUP";
-                    } else if (evtScr >= dupScr && evtScr - difScr >= 0.2) {
-                        pCls = "EVENT";
-                    } else {
-                        pCls = "DIFF";
+                    difScr = distribute[0];
+                    evtScr = distribute[1];
+                    dupScr = distribute[2];
+                    
+                    int method = 3;
+                    if (method == 1) {
+                        if (dupScr >= evtScr && dupScr >= difScr) {
+                            pCls = "DUP";
+                        } else if (evtScr >= dupScr && evtScr >= difScr) {
+                            pCls = "EVENT";
+                        } else {
+                            pCls = "DIFF";
+                        }
+                    } else if (method == 2) {
+                        if (dupScr - evtScr >= 0.0 && dupScr - difScr >= 0.2) {
+                            pCls = "DUP";
+                        } else if (evtScr - dupScr >= 0.0 && evtScr - difScr >= 0.2) {
+                            pCls = "EVENT";
+                        } else if (Math.abs(evtScr - dupScr) <= 0.2 && difScr < 0.3) {
+                            pCls = "EVENT";
+                        } else {
+                            pCls = "DIFF";
+                        }
+                    } else if (method == 3) {
+                        if (dupScr >= evtScr && dupScr >= difScr) {
+                            pCls = "DUP";
+                        } else if (evtScr >= dupScr && evtScr - difScr >= 0.2) {
+                            pCls = "EVENT";
+                        } else {
+                            pCls = "DIFF";
+                        }
                     }
                 }
-            }
-            
-            int pIndex = pCls.equals("DIFF") ? 0 : pCls.equals("EVENT") ? 1 : 2;
-            int rIndex = rCls.equals("DIFF") ? 0 : rCls.equals("EVENT") ? 1 : 2;
-            confusion[rIndex][pIndex]++;
-            
-            if (!StringUtils.equals(rCls, pCls)) {
-                bw.write(mDoc + "\t" + cDoc + "\t" + String.valueOf(difScr) + "\t"
-                    + String.valueOf(evtScr) + "\t" + String.valueOf(dupScr) + "\t"
-                    + pCls + "\t" + rCls);
-                bw.write("\n");
-            } else {
-                right++;
-            }
-            total++;
+                
+                int pIndex = pCls.equals("DIFF") ? 0 : pCls.equals("EVENT") ? 1 : 2;
+                int rIndex = rCls.equals("DIFF") ? 0 : rCls.equals("EVENT") ? 1 : 2;
+                confusion[rIndex][pIndex]++;
+                
+                if (!StringUtils.equals(rCls, pCls)) {
+                    bw.write(mDoc + "\t" + cDoc + "\t" + String.valueOf(difScr) + "\t"
+                        + String.valueOf(evtScr) + "\t" + String.valueOf(dupScr) + "\t"
+                        + pCls + "\t" + rCls);
+                    bw.write("\n");
+                } else {
+                    right++;
+                }
+                total++;
+            } catch (Exception e) {}
         }
         
         bw.close();
