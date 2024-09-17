@@ -49,10 +49,10 @@ def train_xgboost(data_path, seed=42):
     print(X_train.shape)
     num_class = len(np.unique(y_train))
     params = {
-        "max_depth": [7, 8],
+        "max_depth": [6, 7],
         "subsample": [0.6, 0.8],
         "gamma": [1],
-        "learning_rate": [0.05],
+        "learning_rate": [0.05, 0.08],
     }
     keys = list(params.keys())
     permutations = itertools.product(*list(params.values()))
@@ -63,7 +63,7 @@ def train_xgboost(data_path, seed=42):
             n_estimators=1000,
             objective="multi:softprob",
             silent=True,
-            nthread=2,
+            nthread=3,
             missing=np.nan,
             eval_metric="auc",
             early_stopping_rounds=5,
@@ -149,15 +149,16 @@ def predict(data_path, bst, remove_feat=None):
         fout.write(summary)
 
 def run_xgboost(data_path):
-    bst = xgb.Booster(model_file=data_path/"xgb_model.json")
-    # bst.load_model(data_path/"xgb_model.json")
-    l = sorted(bst.get_fscore().items(), key=lambda t: -t[1])
-    for t in l:
-        print(t)
+    # bst = xgb.Booster(model_file=data_path/"xgb_model.json")
+    bst = xgb.Booster(model_file="src/main/resources/model/xgb_model.json")
+    # l = sorted(bst.get_fscore().items(), key=lambda t: -t[1])
+    # for t in l:
+    #     print(t)
+    predict(data_path, bst, None)
 
 if __name__ == '__main__':
     st = time.time()
-    train_xgboost(data_path)
+    # train_xgboost(data_path)
     run_xgboost(data_path)
     
     et = time.time()
