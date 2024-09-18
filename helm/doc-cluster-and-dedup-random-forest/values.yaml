@@ -38,10 +38,10 @@ server:
 
   resources:
     limits:
-      cpu: 4000m
+      cpu: 6000m
       memory: 6000Mi
     requests:
-      cpu: 2000m
+      cpu: 3000m
       memory: 6000Mi
 
   nodeSelector: {}
