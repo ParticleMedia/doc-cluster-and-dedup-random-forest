@@ -151,6 +151,7 @@ def predict(data_path, bst, remove_feat=None):
 def run_xgboost(data_path):
     # bst = xgb.Booster(model_file=data_path/"xgb_model.json")
     bst = xgb.Booster(model_file="src/main/resources/model/xgb_model.json")
+    bst.save_model(data_path/"xgb_model.deprecated")
     # l = sorted(bst.get_fscore().items(), key=lambda t: -t[1])
     # for t in l:
     #     print(t)

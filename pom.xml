@@ -33,7 +33,7 @@
             </plugin>
         </plugins>
     </build>
-
+    
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -178,9 +178,9 @@
         </dependency>
 
         <dependency>
-            <groupId>ml.dmlc</groupId>
-            <artifactId>xgboost4j_2.13</artifactId>
-            <version>2.1.1</version>
+            <groupId>ai.h2o</groupId>
+            <artifactId>xgboost-predictor</artifactId>
+            <version>0.3.20</version>
         </dependency>
 
         <dependency>

@@ -773,7 +773,7 @@ public class EventFeature {
 		return new DenseInstance(1, doubleArray);
 	}
 	
-	public float[] toArrayV3() {
+	public double[] toArrayV3() {
 		List<Double> doubleList = new ArrayList<>();
 		doubleList.add(titleDist);
 		doubleList.add(titleRatio);
@@ -830,13 +830,13 @@ public class EventFeature {
 		doubleList.add(catLength);
 		doubleList.add(geoRatio);
 		doubleList.add(geoLength);
-		float[] floatArray = new float[doubleList.size()];
+		double[] arr = new double[doubleList.size()];
 		for (int i = 0; i < doubleList.size(); i++) {
 			Double d = doubleList.get(i);
 			d = d == null ? Utils.missingValue() : d;
-			floatArray[i] = (float) d.doubleValue();
+			arr[i] = (double) d.doubleValue();
 		}
-		return floatArray;
+		return arr;
 	}
 	
 	public Instance toInstanceV1() {
