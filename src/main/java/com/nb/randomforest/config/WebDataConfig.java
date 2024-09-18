@@ -14,8 +14,8 @@ import com.pmi.serving.metrics.MetricsFactoryUtil;
 import com.pmi.serving.metrics.OnDemandMetricsFactory;
 import com.pmi.serving.metrics.reporter.opentsdb.HttpOpenTsdbClient;
 import com.pmi.serving.metrics.reporter.opentsdb.OpenTsdbClient;
-import ml.dmlc.xgboost4j.java.Booster;
-import ml.dmlc.xgboost4j.java.XGBoost;
+import biz.k11i.xgboost.Predictor;
+import biz.k11i.xgboost.util.FVec;
 import org.bson.Document;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -54,9 +54,9 @@ public class WebDataConfig {
 	}
 	
 	@Bean("DupXGBoost")
-	public Booster dupXGBoost() throws Exception {
-		InputStream modelStream = WebDataConfig.class.getClassLoader().getResourceAsStream("model/xgb_model.json");
-		Booster booster = XGBoost.loadModel(modelStream);
+	public Predictor dupXGBoost() throws Exception {
+		InputStream modelStream = WebDataConfig.class.getClassLoader().getResourceAsStream("model/xgb_model.deprecated");
+		Predictor booster = new Predictor(modelStream);
 		return booster;
 	}
 	

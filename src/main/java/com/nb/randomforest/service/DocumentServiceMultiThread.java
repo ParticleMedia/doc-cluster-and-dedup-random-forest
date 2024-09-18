@@ -8,10 +8,11 @@ import com.nb.randomforest.entity.EventFeature;
 import com.nb.randomforest.entity.resource.RFModelResult;
 import com.nb.randomforest.utils.MyAttributeBuilder;
 import lombok.extern.slf4j.Slf4j;
-import ml.dmlc.xgboost4j.java.Booster;
-import ml.dmlc.xgboost4j.java.DMatrix;
+import biz.k11i.xgboost.Predictor;
+import biz.k11i.xgboost.util.FVec;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.ejml.data.DMatrix;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class DocumentServiceMultiThread {
 	
 	@Autowired
 	@Qualifier("DupXGBoost")
-	Booster dupXGBooster;
+	Predictor dupXGBooster;
 	
 	@Autowired
 	@Qualifier("DupRandomForest")
@@ -125,16 +126,16 @@ public class DocumentServiceMultiThread {
 
 	public void runXGBClassification(RFModelResult result,
 								     String candidateID,
-									 float[] feats,
+									 double[] feats,
 									 ObjectNode masterInfo) {
 		try {
-			DMatrix dMatrix = new DMatrix(feats, 1, feats.length, Float.NaN);
-			float[][] predicts = dupXGBooster.predict(dMatrix);
-			double difScr = predicts[0][0];
-			double evtScr = predicts[0][1];
-			double dupScr = predicts[0][2];
-			double score = Math.max(difScr, Math.max(evtScr, dupScr));
-			log.info("XGB MODEL DEBUG: {}\t{}\t{}", masterInfo.get("masterID").textValue(), candidateID, score);
+			FVec fVec = FVec.Transformer.fromArray(feats, false);
+			float[] predicts = dupXGBooster.predict(fVec);
+			double difScr = predicts[0];
+			double evtScr = predicts[1];
+			double dupScr = predicts[2];
+			// double score = Math.max(difScr, Math.max(evtScr, dupScr));
+			log.info("XGB MODEL DEBUG: {}\t{}\t{}\t{}\t{}", masterInfo.get("masterID").textValue(), candidateID, difScr, evtScr, dupScr);
 			if (difScr >= evtScr && difScr >= dupScr) {
 				result.setLabel("DIFF");
 				result.setScore(difScr);
@@ -272,7 +273,7 @@ public class DocumentServiceMultiThread {
 							RFModelResult result =
 								new RFModelResult(candidateID, "DIFF", 0.0, BooleanUtils.isTrue(isDebug) ? feature : null);
 							if (versionF.equals("xgb")) {
-								float[] feats = feature.toArrayV3();
+								double[] feats = feature.toArrayV3();
 								runXGBClassification(result, candidateID, feats, masterInfo);
 							} else {
 								Instance instance = feature.toInstanceV1();
