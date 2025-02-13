@@ -2,8 +2,12 @@ fullnameOverride: "doc-clu-dedup-random-forest-v2"
 
 server:
   autoscale:
-    enabled: false
-  replicaCount: 6
+    enabled: true
+    minReplicas: 6
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 40
+    keda:
+      enabled: false
   args:
   - prod
 
