@@ -1,7 +1,15 @@
+# Similarity score between two documents
+
+This repository hosts models which get called by the clustering servers. The RandomForest models for v1/v2 output the similarity score between a pair of docs (to interpret the score as 0.0 = DIFF, 1.0 = EVENT or DUP). The XGBoost model for v3 classifies a pair of docs as DIFF, EVENT, or DUP, with the three probability scores adding to 1.
+
+1. RandomForest CI https://jenkins.n.newsbreak.com/job/doc-cluster-and-dedup-random-forest-ci/
+2. RandomForest v1 CD https://jenkins.n.newsbreak.com/job/doc-cluster-and-dedup-random-forest-deploy/
+3. RandomForest v2/v3 CD https://jenkins.n.newsbreak.com/job/doc-cluster-and-dedup-random-forest-v2-deploy/
+
 # Related
-This repository hosts models which get called by the clustering servers. The RandomForest models output the similarity score between a pair of docs (to interpret the score as 0.0 = DIFF, 1.0 = EVENT or DUP). The newer XGBoost model classifies a pair of docs as DIFF, EVENT, or DUP, with the three probability scores adding to 1.
+
 1. v1 clustering server https://github.com/ParticleMedia/doc-cluster-and-dedup-service-java
-2. v2 clustering server https://github.com/ParticleMedia/doc-cluster-and-dedup-service-python
+2. v2/v3 clustering server https://github.com/ParticleMedia/doc-cluster-and-dedup-service-python
 
 # 从零训练
 ## 步骤说明
